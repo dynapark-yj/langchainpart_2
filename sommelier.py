@@ -76,15 +76,25 @@ def describe_dish_flavor(image_bytes, query):
 
 
 def search_wine(dish_flavor):
-    results = vector_store.similarity_search(
+    results = vector_store.similarity_search_with_score(
         dish_flavor,
         k=2
     )
-
+    if not results or len(results) == 0:
+        return {
+            "dish_flavor": dish_flavor,
+            "wine_reviews": "검색 결과가 없습니다. (벡터DB에 데이터가 없거나 쿼리에 매칭되는 리뷰가 없습니다.)"
+        }
+    # 유사도 점수를 0~100%로 변환해서 표시
+    reviews = []
+    for doc, score in results:
+        similarity = (1 - score) * 100  # (cosine distance 기준: score가 작을수록 유사)
+        reviews.append(f"[유사도: {similarity:.1f}%]\n{doc.page_content}")
     return {
         "dish_flavor": dish_flavor,
-        "wine_reviews": "\n\n".join([doc.page_content for doc in results])
+        "wine_reviews": "\n---\n".join(reviews)
     }
+
 
 
 def recommand_wine(inputs):
