@@ -1,11 +1,14 @@
 from dotenv import load_dotenv
+import os
 from langchain_openai import ChatOpenAI
 from langchain_openai import OpenAIEmbeddings
 from langchain_pinecone import PineconeVectorStore
+from langchain_core.prompts import ChatPromptTemplate, HumanMessagePromptTemplate
+from langchain_core.output_parsers import StrOutputParser
 import base64
-load_dotenv()
 
-import os
+
+load_dotenv()
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_LLM_MODEL = os.getenv("OPENAI_LLM_MODEL")
@@ -19,7 +22,6 @@ PINECONE_INDEX_METRIC = os.getenv("PINECONE_INDEX_METRIC")
 PINECONE_INDEX_DIMENSION = int(os.getenv("PINECONE_INDEX_DIMENSION"))
 
 
-
 llm = ChatOpenAI(model=OPENAI_LLM_MODEL, temperature=0.2, openai_api_key=OPENAI_API_KEY)
 embeddings = OpenAIEmbeddings(model=OPENAI_EMBEDDING_MODEL, openai_api_key=OPENAI_API_KEY)
 vector_store = PineconeVectorStore(
@@ -27,22 +29,51 @@ vector_store = PineconeVectorStore(
     embedding=embeddings,
     pinecone_api_key=PINECONE_API_KEY
 )
-def describe_dish_flavor(image_bytes,query)
+
+
+def describe_dish_flavor(image_bytes, query):
     base64_str = base64.b64encode(image_bytes).decode("utf-8")
-    date-url = f"data:image/jpeg;base64,{base64,{base_str}}"
-    message = []
-   
-       
-        """)
-        {"role": "user", "ccontent":
-           {"type"}: "text", "text": query},
-           {"type"}: "image_url", "image_url": {"url": data_url}
+    data_url = f"data:image/jpeg;base64,{base64_str}"
+    messages = [
+        {"role": "system", 
+         "content": """
+            Persona:
+            As a flavor analysis system, I am equipped with a deep understanding of food ingredients, cooking methods, and sensory properties such as taste, texture, and aroma. I can assess and break down the flavor profiles of dishes by identifying the dominant tastes (sweet, sour, salty, bitter, umami) as well as subtler elements like spice levels, richness, freshness, and aftertaste. I am able to compare different foods based on their ingredients and cooking techniques, while also considering cultural influences and typical pairings. My goal is to provide a detailed analysis of a dish’s flavor profile to help users better understand what makes it unique or to aid in choosing complementary foods and drinks.
+
+            Role:
+
+            1. Flavor Identification: I analyze the dominant and secondary flavors of a dish, highlighting key taste elements such as sweetness, acidity, bitterness, saltiness, umami, and the presence of spices or herbs.
+            2. Texture and Aroma Analysis: Beyond taste, I assess the mouthfeel and aroma of the dish, taking into account how texture (e.g., creamy, crunchy) and scents (e.g., smoky, floral) contribute to the overall experience.
+            3. Ingredient Breakdown: I evaluate the role each ingredient plays in the dish’s flavor, including their impact on the dish's balance, richness, or intensity.
+            4. Culinary Influence: I consider the cultural or regional influences that shape the dish, understanding how traditional cooking methods or unique ingredients affect the overall taste.
+            5. Food and Drink Pairing: Based on the dish's flavor profile, I suggest complementary food or drink pairings that enhance or balance the dish’s qualities.
+
+            Examples:
+
+            - Dish Flavor Breakdown:
+            For a butter garlic shrimp, I identify the richness from the butter, the pungent aroma of garlic, and the subtle sweetness of the shrimp. The dish balances richness with a touch of saltiness, and the soft, tender texture of the shrimp is complemented by the slight crispness from grilling.
+
+            - Texture and Aroma Analysis:
+            A creamy mushroom risotto has a smooth, velvety texture due to the creamy broth and butter. The earthy aroma from the mushrooms enhances the umami flavor, while a sprinkle of Parmesan adds a savory touch with a mild sharpness.
+
+            - Ingredient Role Assessment:
+            In a spicy Thai curry, the coconut milk provides a rich, creamy base, while the lemongrass and lime add freshness and citrus notes. The chilies bring the heat, and the balance between sweet, sour, and spicy elements creates a dynamic flavor profile.
+
+            - Cultural Influence:
+            A traditional Italian margherita pizza draws on the classic combination of fresh tomatoes, mozzarella, and basil. The simplicity of the ingredients allows the flavors to shine, with the tanginess of the tomato sauce balancing the richness of the cheese and the freshness of the basil.
+
+            - Food Pairing Example:
+            For a rich chocolate cake, I would recommend a sweet dessert wine like Port to complement the bitterness of the chocolate, or a light espresso to contrast the sweetness and enhance the richness of the dessert.
+
+        """},
+        {"role": "user", "content": [
+            {"type": "text", "text": query},
+            {"type": "image_url", "image_url": {"url": data_url}}
         ]}
     ]
+
     return llm.invoke(messages).content
 
-
-    
 
 def search_wine(dish_flavor):
     results = vector_store.similarity_search(
@@ -56,7 +87,7 @@ def search_wine(dish_flavor):
     }
 
 
-def recommend_wine(query):
+def recommand_wine(inputs):
     prompt = ChatPromptTemplate.from_messages([
         ("system", """
             Persona:
@@ -80,8 +111,9 @@ def recommend_wine(query):
             If you enjoy wines with bold flavors and intense tannins, a Cabernet Sauvignon from Napa Valley would suit your palate perfectly. For something lighter and fruitier, a Riesling could be a delightful alternative, pairing well with spicy dishes or fresh salads.
         """),
         ("human", """
-            와인 페어링 추천에 아래의 요리의 풍미와 와인 리뷰를 참고해 한글로 답변해 주세요.
-            두개의 와인에 대해 설명은 하되,  딱 한개의 와인만 산택해 추천 이유를 달아주세요.
+            와인 페어링 추천에 아래 요리의 풍미와 와인 리뷰를 참고해 한글로 답변해 주세요.
+            두 개의 와인에 대해 설명은 하되, 딱 한 개의 와인만 선택해 추천 이유를 달아주세요. 
+
             요리의 풍미:
             {dish_flavor}
 
@@ -92,8 +124,4 @@ def recommend_wine(query):
 
     chain = prompt | llm | StrOutputParser()
 
-    return chain.invoke(query)
-
-
-
-
+    return chain.invoke(inputs)
